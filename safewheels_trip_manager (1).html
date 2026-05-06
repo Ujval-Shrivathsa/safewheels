@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SafeWheels · Dispatch</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body{font-family:'Space Grotesk',sans-serif;background:#f0ede8;color:#1c1c1c;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+nav{background:#1c1c1c;color:#f0ede8;height:52px;display:flex;align-items:center;padding:0 20px;gap:14px;flex-shrink:0}
+.wm{font-weight:700;font-size:15px;letter-spacing:-0.3px}
+.wm span{color:#f5a623}
+.pipe{width:1px;height:18px;background:#333}
+.sub{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.8px}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.stat{text-align:right}
+.stat .n{font-family:'Space Mono',monospace;font-size:15px;color:#f5a623;line-height:1}
+.stat .l{font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.8px}
+.nav-sep{width:1px;height:18px;background:#333}
+.nbtn{background:transparent;border:1px solid #333;color:#ccc;padding:6px 12px;border-radius:5px;font-family:'Space Grotesk',sans-serif;font-size:11px;cursor:pointer;transition:all .15s}
+.nbtn:hover{border-color:#f5a623;color:#f5a623}
+.nbtn.accent{background:#f5a623;border-color:#f5a623;color:#1c1c1c;font-weight:600}
+.nbtn.accent:hover{background:#e8971a;border-color:#e8971a}
+
+.body{display:flex;flex:1;overflow:hidden}
+
+.left{width:262px;flex-shrink:0;background:#1c1c1c;display:flex;flex-direction:column;overflow:hidden}
+.lhead{padding:12px;border-bottom:1px solid #2a2a2a;display:flex;gap:6px;align-items:center}
+.search{flex:1;background:#2a2a2a;border:1px solid transparent;border-radius:5px;padding:6px 9px;color:#f0ede8;font-family:'Space Grotesk',sans-serif;font-size:12px;outline:none}
+.search::placeholder{color:#444}
+.search:focus{border-color:#f5a623}
+.add-drv-btn{background:#f5a623;border:none;color:#1c1c1c;width:28px;height:28px;border-radius:5px;font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;transition:background .15s}
+.add-drv-btn:hover{background:#e8971a}
+
+.tlist{flex:1;overflow-y:auto;padding:6px}
+.tlist::-webkit-scrollbar{width:3px}
+.tlist::-webkit-scrollbar-thumb{background:#2e2e2e;border-radius:2px}
+
+.ti{padding:9px 11px;border-radius:6px;cursor:pointer;margin-bottom:3px;border:1px solid transparent;transition:all .1s;position:relative}
+.ti:hover{background:#242424}
+.ti.on{background:#212121;border-color:#f5a623}
+.ti .dn{font-size:13px;font-weight:600;color:#e0e0e0;margin-bottom:4px}
+.ti.on .dn{color:#f5a623}
+.ti .tags{display:flex;gap:3px;flex-wrap:wrap}
+.tag{font-size:10px;padding:2px 6px;border-radius:3px;font-weight:500}
+.tv{background:#1a2e45;color:#6ea8d8}
+.ts{background:#2e2200;color:#f5a623}
+.ti .pc{position:absolute;top:8px;right:9px;font-family:'Space Mono',monospace;font-size:10px;color:#444}
+.ti.on .pc{color:#f5a623}
+.cbar{height:2px;margin-top:6px;border-radius:1px;opacity:.55}
+
+#map{flex:1}
+.leaflet-tile{filter:saturate(.5) brightness(.82)}
+.leaflet-popup-content-wrapper{background:#1c1c1c;color:#f0ede8;border-radius:6px;border:none;box-shadow:0 4px 14px rgba(0,0,0,.45);font-family:'Space Grotesk',sans-serif}
+.leaflet-popup-tip{background:#1c1c1c}
+.leaflet-popup-content{margin:10px 14px;font-size:12px;line-height:1.5}
+.pw{font-weight:600;margin-bottom:2px}
+.pa{color:#777;font-size:11px;margin-bottom:4px}
+.pd{font-size:11px;color:#f5a623}
+
+.right{width:298px;flex-shrink:0;background:#f7f4ef;border-left:1px solid #ddd9d0;display:flex;flex-direction:column;overflow:hidden}
+.rtop{padding:14px;border-bottom:1px solid #ddd9d0;flex-shrink:0}
+.rtop .tiny{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px}
+.rtop .dname{font-size:19px;font-weight:700;letter-spacing:-.5px;margin-bottom:7px}
+.rtop .meta{display:flex;gap:4px;flex-wrap:wrap}
+.pill{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:500;border:1px solid}
+.po{border-color:#f5a623;color:#b07000}
+.pb{border-color:#7ab3e8;color:#1a5a9e}
+.pg{border-color:#7dbf7d;color:#2a6e2a}
+
+.plist{flex:1;overflow-y:auto;padding:10px}
+.plist::-webkit-scrollbar{width:3px}
+.plist::-webkit-scrollbar-thumb{background:#ddd9d0;border-radius:2px}
+.stitle{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between}
+.add-pax-btn{background:#1c1c1c;color:#f0ede8;border:none;padding:3px 8px;border-radius:4px;font-size:10px;font-family:'Space Grotesk',sans-serif;font-weight:600;cursor:pointer;transition:background .15s}
+.add-pax-btn:hover{background:#f5a623;color:#1c1c1c}
+
+.px{background:#fff;border:1px solid #e8e4de;border-radius:6px;padding:8px 10px;margin-bottom:4px;display:flex;gap:8px}
+.pn{width:19px;height:19px;border-radius:50%;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.pb2{flex:1;min-width:0}
+.pname{font-size:12px;font-weight:600;color:#1c1c1c;margin-bottom:1px}
+.paddr{font-size:10px;color:#888;line-height:1.4;margin-bottom:1px}
+.plm{font-size:10px;color:#b07000;font-weight:500}
+
+.rbottom{padding:10px;border-top:1px solid #ddd9d0;flex-shrink:0;background:#f7f4ef;display:flex;flex-direction:column;gap:6px}
+select{width:100%;background:#fff;border:1px solid #ddd9d0;border-radius:5px;padding:6px 8px;font-family:'Space Grotesk',sans-serif;font-size:11px;color:#1c1c1c;outline:none;cursor:pointer}
+select:focus{border-color:#f5a623}
+.rebtn{width:100%;background:#1c1c1c;color:#f0ede8;border:none;padding:8px;border-radius:5px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:12px;cursor:pointer;transition:all .15s}
+.rebtn:hover{background:#f5a623;color:#1c1c1c}
+
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#ccc;font-size:12px;text-align:center;padding:24px;gap:10px}
+.empty svg{opacity:.25}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:none;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:10px;padding:24px;width:380px;max-width:90vw;max-height:85vh;overflow-y:auto;position:relative}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:16px;letter-spacing:-.3px}
+.modal h2 span{color:#f5a623}
+.mclose{position:absolute;top:16px;right:16px;background:none;border:none;font-size:18px;cursor:pointer;color:#888;line-height:1}
+.mclose:hover{color:#1c1c1c}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.field input,.field select{width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:6px;font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1c1c1c;outline:none;background:#fff}
+.field input:focus,.field select:focus{border-color:#f5a623}
+.field .row{display:flex;gap:8px}
+.field .row input{flex:1}
+.geo-row{display:flex;gap:6px}
+.geo-row input{flex:1}
+.geo-btn{background:#1c1c1c;color:#f0ede8;border:none;padding:8px 12px;border-radius:6px;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.geo-btn:hover{background:#f5a623;color:#1c1c1c}
+.geo-btn.loading{opacity:.6;pointer-events:none}
+.geo-status{font-size:11px;margin-top:4px;min-height:16px}
+.geo-ok{color:#2a7a2a}
+.geo-err{color:#c0392b}
+.msubmit{width:100%;background:#1c1c1c;color:#f0ede8;border:none;padding:10px;border-radius:6px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;margin-top:6px;transition:all .15s}
+.msubmit:hover{background:#f5a623;color:#1c1c1c}
+.hint{font-size:11px;color:#aaa;margin-top:4px}
+
+.snack{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(6px);background:#1c1c1c;color:#f0ede8;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:500;opacity:0;transition:all .25s;pointer-events:none;z-index:9999;white-space:nowrap}
+.snack.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.snack.ok{background:#236e23}
+.snack.err{background:#c0392b}
+
+#previewDot{display:none}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wm">Safe<span>Wheels</span></div>
+  <div class="pipe"></div>
+  <div class="sub">Dispatch</div>
+  <div class="nav-right">
+    <div class="stat"><div class="n" id="cTrips">19</div><div class="l">trips</div></div>
+    <div class="nav-sep"></div>
+    <div class="stat"><div class="n" id="cPax">—</div><div class="l">passengers</div></div>
+    <div class="nav-sep"></div>
+    <button class="nbtn" onclick="openSheet('xlsx')">↓ Excel</button>
+    <button class="nbtn" onclick="openSheet('csv')">↓ CSV (Sheets)</button>
+  </div>
+</nav>
+
+<div class="body">
+
+  <div class="left">
+    <div class="lhead">
+      <input class="search" type="text" placeholder="Search…" id="q" oninput="renderLeft()">
+      <button class="add-drv-btn" title="Add driver" onclick="openModal('drv')">+</button>
+    </div>
+    <div class="tlist" id="tlist"></div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="right" id="right">
+    <div class="empty">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span>Select a trip</span>
+    </div>
+  </div>
+</div>
+
+<!-- Add Driver Modal -->
+<div class="overlay" id="drvModal">
+  <div class="modal">
+    <button class="mclose" onclick="closeModal('drv')">✕</button>
+    <h2>Add <span>Driver</span></h2>
+    <div class="field">
+      <label>Driver Name</label>
+      <input type="text" id="d_name" placeholder="e.g. Ravi Kumar">
+    </div>
+    <div class="field">
+      <label>Vehicle Type</label>
+      <select id="d_veh">
+        <option>Sedan</option>
+        <option>Ertiga</option>
+        <option>Kia Carens</option>
+        <option>TT</option>
+        <option>21 Seater</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Vehicle Number</label>
+      <input type="text" id="d_vno" placeholder="e.g. KA09 AB 1234">
+    </div>
+    <div class="field">
+      <label>Shift</label>
+      <div class="row">
+        <input type="text" id="d_s1" placeholder="Start  e.g. 2:00 PM">
+        <input type="text" id="d_s2" placeholder="End  e.g. 11:00 PM">
+      </div>
+    </div>
+    <div class="field">
+      <label>Pickup Time</label>
+      <input type="text" id="d_pt" placeholder="e.g. 23:00">
+    </div>
+    <button class="msubmit" onclick="addDriver()">Add Driver →</button>
+  </div>
+</div>
+
+<!-- Add Passenger Modal -->
+<div class="overlay" id="paxModal">
+  <div class="modal">
+    <button class="mclose" onclick="closeModal('pax')">✕</button>
+    <h2>Add <span>Passenger</span></h2>
+    <div class="field">
+      <label>Passenger Name</label>
+      <input type="text" id="p_name" placeholder="Full name">
+    </div>
+    <div class="field">
+      <label>Address</label>
+      <div class="geo-row">
+        <input type="text" id="p_addr" placeholder="House no, street, area, Mysuru">
+        <button class="geo-btn" id="geoBtn" onclick="geocode()">Find →</button>
+      </div>
+      <div class="geo-status" id="geoStatus"></div>
+      <div class="hint">Type address then click Find to pin on map</div>
+    </div>
+    <div class="field">
+      <label>Landmark</label>
+      <input type="text" id="p_lm" placeholder="e.g. Near SBI, Opp temple">
+    </div>
+    <div class="field">
+      <label>Assign to Driver / Trip</label>
+      <select id="p_trip"></select>
+    </div>
+    <button class="msubmit" onclick="addPassenger()">Add Passenger →</button>
+    <input type="hidden" id="p_lat" value="">
+    <input type="hidden" id="p_lng" value="">
+  </div>
+</div>
+
+<div class="snack" id="snack"></div>
+
+<script>
+var trips = [
+  {id:1,driver:'Nagaraju',veh:'Ertiga',vno:'KA09 AA 7918',shift:'12:00 PM – 9:15 PM',pt:'21:15',
+   pax:[
+    {n:'Pavithra',a:'Annapoorneshwari Ladies PG',lm:'Chennamma Circle',lat:12.3003,lng:76.6330},
+    {n:'Veeranagappa',a:"Ananya Boy's PG",lm:'Chennamma Circle',lat:12.3005,lng:76.6332},
+    {n:'Rakesh Kanade',a:"Ananya Boy's PG",lm:'Chennamma Circle',lat:12.3007,lng:76.6334},
+    {n:'Margina',a:'#02 Vanivilas Layout, Abhishek Circle, Hebbal',lm:'Abhishek Circle',lat:12.3518,lng:76.6131},
+    {n:'Sonal',a:'18, 6th Main, SBI Main Road, Hebbal 1st Stage',lm:'Shree Laxmi Medicals',lat:12.3520,lng:76.6118},
+    {n:'Md Ashpak',a:'Hi Fi Boys PG',lm:'Basavanagudi Circle',lat:12.3480,lng:76.6093},
+    {n:'Md Azhar',a:"Ananya Boy's PG",lm:'Chennamma Circle',lat:12.3009,lng:76.6336}
+   ]},
+  {id:2,driver:'Anil',veh:'Sedan',vno:'KA09 D 4088',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Devaraj N',a:'584, 2nd Main, 9th Cross, Aravind Nagar',lm:'Behind Aravind Hospital',lat:12.2870,lng:76.6270},
+    {n:'Sathyavel S',a:'#360, 17th Cross, Aravindanagar',lm:'Behind Kuvempunagar Busdepo',lat:12.2950,lng:76.6200},
+    {n:'Surjith Shanmugam',a:'#801, E&P Block 1st Stage, Kuvempunagar',lm:'Unacademy Kuvempunagar',lat:12.2960,lng:76.6195}
+   ]},
+  {id:3,driver:'Avinash',veh:'Sedan',vno:'KA09 C 7230',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Dhrubha Nayak',a:'Mahalakshmi Sweets',lm:'Near Abhishek Circle',lat:12.3515,lng:76.6133},
+    {n:'Akash Reddy',a:'#1466, Vijaynagar 4th Stage, 2nd Phase',lm:'Behind NPS School',lat:12.3060,lng:76.5855},
+    {n:'Mahesh',a:'Judicial Layout, Kergalli, Jayapura Hobli, Bogadi',lm:'Bh Christ Public School',lat:12.2800,lng:76.6100}
+   ]},
+  {id:4,driver:'Raju',veh:'Sedan',vno:'KA10 A 9158',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Varsha R',a:'1397, Benki Nawab Street, Mandi Mohalla',lm:'Mandi Mohalla',lat:12.2940,lng:76.6560},
+    {n:'Nishchitha P',a:'540, K15 7th Cross, Oil Mill Road, KR Mohalla',lm:'Behind Shantala Talkies',lat:12.3035,lng:76.6580},
+    {n:'Sushmitha M A',a:'1063, 2nd Main 9th Crs Vidyaranyapuram',lm:'Ramalingeshwara Temple',lat:12.3399,lng:76.6060},
+    {n:'Naveen Kumar',a:'12 Gowrishankara Nagar, Main Road',lm:'SJS Ashrama',lat:12.3050,lng:76.5920}
+   ]},
+  {id:5,driver:'Prasanna',veh:'Sedan',vno:'KA09 AA 5258',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Kavya Srinivas',a:'HIG 5693, 3rd Cross, 2nd Stage, Vijaynagar',lm:'Near Vishal Mart',lat:12.3075,lng:76.5852},
+    {n:'Ramya S',a:'3rd Floor, 303-170/9, 3rd Cross Rd, Dattagalli',lm:'Near Kadhamba Bakery',lat:12.3015,lng:76.5951},
+    {n:'Swathi K I',a:'No 21, ASG Nesara Layout, Srinagar',lm:'Opp Lakshminarayani Temple',lat:12.2869,lng:76.6456},
+    {n:'Punith',a:'198 17th Main 4th Cross J P Nagar',lm:'Sai Baba Temple',lat:12.3053,lng:76.5918}
+   ]},
+  {id:6,driver:'Bharath',veh:'Ertiga',vno:'KA09 AB 8472',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Adithya S',a:'Srinilaya, #52, 1st Stage, 1st Cross, Gayathripuram',lm:"Behind Commissioner's Residence",lat:12.3475,lng:76.6128},
+    {n:'Abhijith Shivappa',a:'674, 4th Cross, Rajkumar Road, Yaraganhalli',lm:'Teresian College',lat:12.3100,lng:76.5940},
+    {n:'Rajeshwari K',a:'495 IPS Nagar Mysore 570028',lm:'Kushal Traders',lat:12.3125,lng:76.5818},
+    {n:'Madhupriya',a:'93 Moulim Nagar Urdu Teachers Layout',lm:'Opp M Pro Palace Hotel',lat:12.3158,lng:76.5835},
+    {n:'Joy Abishake AK',a:'93 Moulim Nagar Urdu Teachers Layout',lm:'Opp M Pro Palace Hotel',lat:12.3160,lng:76.5837}
+   ]},
+  {id:7,driver:'Anil Kumar',veh:'Ertiga',vno:'KA09 AA 6603',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Shruthi Shetty',a:'#234, EWS 3rd Stage, Subramanya Nagar, Hebbal',lm:'Near Ganesha Temple',lat:12.3500,lng:76.6120},
+    {n:'Imran',a:'1202, 1st Stage, 1st Cross, Rajivnagar',lm:'Near Clock Tower',lat:12.3425,lng:76.6228},
+    {n:'Chethana Chawan',a:'#1599 4th Cross Raghavendra Nagar',lm:'Bhagya Jyothi School',lat:12.3210,lng:76.5855},
+    {n:'Hareesh Y B',a:'441, Ground Floor, 3rd Main Road, Sathagalli',lm:'Near VTU College',lat:12.3205,lng:76.5850},
+    {n:'Udayshankar',a:'21 Aralikatte Road Ramnahalli',lm:'Ganapathy Temple',lat:12.3195,lng:76.5862},
+    {n:'Md Ayaz',a:'120, A Zone, Satagalli',lm:'Prudent School',lat:12.3215,lng:76.5860}
+   ]},
+  {id:8,driver:'Vasanth',veh:'Kia Carens',vno:'KA09 AA 5396',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Kuldeep Krishna',a:'Prakrati Extn, Bannimantap, Siddiqui Nagar',lm:'Cozy Dwell Apartment',lat:12.2785,lng:76.6545},
+    {n:'Manoj M',a:'7, 3rd Cross, Kurimandi Road, Kesare',lm:'Kurimandi Bus Stop',lat:12.2770,lng:76.6620},
+    {n:'Fathima Shabna',a:'196, 5th Cross, 2nd Stage, Kesare',lm:'Near Right Door Solutions',lat:12.2775,lng:76.6618},
+    {n:'Christina',a:'No 374, 4th Cross, NR Mohalla',lm:'Mubin Masjid',lat:12.2940,lng:76.6562},
+    {n:'Pooja',a:'No 694, 1st Main, Shivaratreshwara Nagar, Bannimantap',lm:'Near JSS School',lat:12.2788,lng:76.6538},
+    {n:'Syed Nawaz',a:'No 6/3, A Layout, Bannimantap',lm:'Bh Blue In Hotel',lat:12.2790,lng:76.6540}
+   ]},
+  {id:9,driver:'Nagaraj',veh:'Ertiga',vno:'KA09 AA 7918',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Ramya K',a:'7th Cross, Bank Circle, Hebbal',lm:'Surya Bakery',lat:12.3520,lng:76.6110},
+    {n:'Sahana B',a:'583, 9th Main, Mahadeshwara Badavane, Kumbarakoppal',lm:'Vidhyavardaka College',lat:12.3545,lng:76.6088},
+    {n:'Vinodkumar',a:'Madeshwara Badavane',lm:'Look Spexy',lat:12.3548,lng:76.6090},
+    {n:'Vamshi Krishna',a:'Madeshwara Badavane',lm:'Look Spexy',lat:12.3550,lng:76.6092},
+    {n:'Hari Priya',a:'3271, Mogara Halli, Manti, Belgola',lm:'Nandini Parlour',lat:12.3200,lng:76.6610},
+    {n:'Kiran Kumar',a:'2nd Cross, Sanjeevini Circle, Lokanayaka Nagar',lm:'Near Niya Bakery',lat:12.3380,lng:76.6540}
+   ]},
+  {id:10,driver:'Shashi',veh:'21 Seater',vno:'KA51 AE 7488',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Sylvester',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3186,lng:76.5970},
+    {n:'Shaheed Mujawar',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3188,lng:76.5972},
+    {n:'Fayum Khan',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3190,lng:76.5974},
+    {n:'Shiva Reddy',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3192,lng:76.5976},
+    {n:'Vinod Thevar',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3194,lng:76.5978},
+    {n:'Rakesh',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3196,lng:76.5980},
+    {n:'Shahid Abrar',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3198,lng:76.5982},
+    {n:'Akash Inchale',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3200,lng:76.5984},
+    {n:'Venkatesh Bathala',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3186,lng:76.5964},
+    {n:'Naveen Kumar',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3188,lng:76.5966},
+    {n:'Jitendra Barada',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3190,lng:76.5962},
+    {n:'Naga Darbar Sai',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3192,lng:76.5960},
+    {n:'Srikanth',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3194,lng:76.5958},
+    {n:'Anirudh',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3196,lng:76.5956},
+    {n:'Praveen',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3198,lng:76.5954},
+    {n:'Syed Quaser Hussain',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3200,lng:76.5952},
+    {n:'Sreekanth Tammi',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3202,lng:76.5950},
+    {n:'Talla Bhanu',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3204,lng:76.5948},
+    {n:'Sarkhilulla Khan',a:'Colombia Asia Signal',lm:'Manipal Hospital',lat:12.3425,lng:76.6495},
+    {n:'Vinodkumar',a:'Colombia Asia Signal',lm:'Manipal Hospital',lat:12.3427,lng:76.6497},
+    {n:'Chandu',a:'Colombia Asia Signal',lm:'Manipal Hospital',lat:12.3429,lng:76.6493},
+    {n:'Vivek K N',a:'Colombia Asia Signal',lm:'Manipal Hospital',lat:12.3431,lng:76.6499},
+    {n:'Faraz Kasif',a:'Colombia Asia Signal',lm:'Manipal Hospital',lat:12.3433,lng:76.6501}
+   ]},
+  {id:11,driver:'Umesha',veh:'TT',vno:'KA09 C 8924',shift:'2:00 PM – 11:00 PM',pt:'23:00',
+   pax:[
+    {n:'Nikhita',a:'18, 6th Main, SBI Main Road, Hebbal 1st Stage',lm:'Shree Laxmi Medicals',lat:12.3522,lng:76.6122},
+    {n:'Theja',a:'MR Ladies Hostel, Ganapathy Temple Road',lm:'Near Mayura Circle',lat:12.3512,lng:76.6100},
+    {n:'Durga Bhanavi',a:'804 8th Cross Hebbal 2nd Stage',lm:'Mayura Circle',lat:12.3510,lng:76.6098},
+    {n:'Hari Chandana',a:'Annapoorneshwari Ladies PG',lm:'Chennamma Circle',lat:12.3002,lng:76.6328},
+    {n:'Tejaswini',a:'Annapoorneshwari Ladies PG',lm:'Chennamma Circle',lat:12.3004,lng:76.6330},
+    {n:'Kavyashree',a:'Annapoorneshwari Ladies PG',lm:'Chennamma Circle',lat:12.3006,lng:76.6332},
+    {n:'Krishnan',a:"Ananya Boy's PG",lm:'Chennamma Circle',lat:12.3011,lng:76.6338},
+    {n:'Venkatesh Hegde',a:"Ananya Boy's PG",lm:'Chennamma Circle',lat:12.3013,lng:76.6340},
+    {n:'Naresh',a:'No 53, 9th Cross, Hebbal 2nd Stage',lm:'Chennamma Circle',lat:12.3015,lng:76.6342},
+    {n:'Mahendra M',a:'No 93, 3rd Cross, Kuvempu Layout, Ilwala',lm:'Ilwala',lat:12.3448,lng:76.6195}
+   ]},
+  {id:12,driver:'Umesha',veh:'TT',vno:'KA09 C 8924',shift:'3:00 PM – 12:00 AM',pt:'00:00',
+   pax:[
+    {n:'Sharada Prasad K',a:'Koorgahalli',lm:'Near Silent Shores',lat:12.2700,lng:76.6080},
+    {n:'Vinod DM',a:'Koorgahalli',lm:'Near Silent Shores',lat:12.2702,lng:76.6082},
+    {n:'Sandeep Reddy',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3182,lng:76.5968},
+    {n:'Sravani Kani',a:'Annapoorneshwari PG',lm:'Chennamma Circle',lat:12.3017,lng:76.6344},
+    {n:'Ramya',a:'Annapoorneshwari PG',lm:'Chennamma Circle',lat:12.3019,lng:76.6346},
+    {n:'Athira',a:'Annapoorna Ladies PG',lm:'Chennamma Circle',lat:12.3021,lng:76.6348},
+    {n:'Prajna',a:'Aaroha PG, Subramanya Nagar, Hebbal',lm:'Near CITB Choultry',lat:12.3498,lng:76.6122},
+    {n:'Manjunath Hunashyali',a:'686/3 5th Main Rd, Manchegowdana Koppalu',lm:'Abhishek Circle',lat:12.3516,lng:76.6135},
+    {n:'Ravi Chanchalani',a:'Gokulam',lm:'Headsup Pet Spa',lat:12.3340,lng:76.6277},
+    {n:'Santosh Rajedo',a:'Gokulam',lm:'Headsup Pet Spa',lat:12.3342,lng:76.6279},
+    {n:'Narendra Singh',a:'Gokulam',lm:'Headsup Pet Spa',lat:12.3344,lng:76.6281}
+   ]},
+  {id:13,driver:'Anil',veh:'Sedan',vno:'KA09 D 4088',shift:'3:00 PM – 12:00 AM',pt:'00:00',
+   pax:[
+    {n:'Sahana B',a:'583, 9th Main, Mahadeshwara Badavane, Kumbarakoppal',lm:'Vidhyavardaka College',lat:12.3547,lng:76.6092},
+    {n:'Sanjana',a:'No 3a/15 Ramakrishna Nagar I Block, Dattagalli',lm:'Dattagalli',lat:12.2988,lng:76.5960},
+    {n:'Sushma',a:'38, MDCC Layout, 2nd Stage, Srirampura',lm:'Opp BSNL Office',lat:12.3145,lng:76.6390},
+    {n:'Ranjith',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3180,lng:76.5966}
+   ]},
+  {id:14,driver:'Bharath',veh:'Ertiga',vno:'KA09 AB 8472',shift:'3:30 PM – 12:30 AM',pt:'00:30',
+   pax:[
+    {n:'Surya Prasad S',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3178,lng:76.5964},
+    {n:'Kiran Kumar',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3176,lng:76.5962},
+    {n:'Umesh',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3174,lng:76.5960},
+    {n:'Nazir',a:'Hi Fi Boys PG',lm:'Basavanagudi Circle',lat:12.3482,lng:76.6095},
+    {n:'Abhinandan',a:'198 9th Cross Gokulam',lm:'Santosh Café',lat:12.3340,lng:76.6280},
+    {n:'Md Zubair Ahmed',a:'#249, 2nd Stage, Madeena Circle, Udayagiri',lm:'Madeena Masjid Clock Tower',lat:12.3048,lng:76.5770}
+   ]},
+  {id:15,driver:'Prasanna',veh:'Sedan',vno:'KA09 AA 5258',shift:'3:30 PM – 12:30 AM',pt:'00:30',
+   pax:[
+    {n:'Chandu Mandala',a:'SLV Boys PG',lm:'Chennamma Circle',lat:12.3023,lng:76.6350},
+    {n:'Guru Sai Jagan',a:'SLV Boys PG',lm:'Chennamma Circle',lat:12.3025,lng:76.6352},
+    {n:'Shivaprasad',a:'SLV Boys PG',lm:'Chennamma Circle',lat:12.3027,lng:76.6354},
+    {n:'Ramprasad',a:'SLV Boys PG',lm:'Chennamma Circle',lat:12.3029,lng:76.6356}
+   ]},
+  {id:16,driver:'Raju',veh:'Sedan',vno:'KA10 A 9158',shift:'5:00 PM – 2:00 AM',pt:'02:00',
+   pax:[
+    {n:'Baby Farida',a:'1323, Gupta Store Road, 2nd Stage, Rajiv Nagar',lm:'Guptha Store',lat:12.3420,lng:76.6232},
+    {n:'Sadiya',a:'1323, Gupta Store Road, 2nd Stage, Rajiv Nagar',lm:'Guptha Store',lat:12.3422,lng:76.6234},
+    {n:'Aisha Sulthana',a:'2nd Cross, Gokulam 3rd Stage',lm:'Near ESI Hospital',lat:12.3343,lng:76.6283},
+    {n:'Adil',a:'14, 2nd Cross, Gokulam 3rd Stage',lm:'Gokulam',lat:12.3345,lng:76.6285}
+   ]},
+  {id:17,driver:'Vasanth',veh:'Kia Carens',vno:'KA09 AA 5396',shift:'5:00 PM – 2:00 AM',pt:'02:00',
+   pax:[
+    {n:'Sunitha',a:'No 277, Subramanya Nagar, Hebbal',lm:'Near Bharath Cancer Hospital',lat:12.3495,lng:76.6118},
+    {n:'Elston Fernandes',a:'No 179, R S Naidu Nagar, Kesare',lm:'Near Green Park',lat:12.2772,lng:76.6627},
+    {n:'Hemalatha',a:'118 CH, 13/A, Jayanagar',lm:'Near Sankethi Girls Hostel',lat:12.3125,lng:76.6543},
+    {n:'Adil',a:'14, 2nd Cross, Gokulam 3rd Stage',lm:'Gokulam',lat:12.3347,lng:76.6287},
+    {n:'Pradeep',a:'IBeeM Den, 10, 3rd Main Rd, Hebbal 1st Stage',lm:'Near SBI More',lat:12.3518,lng:76.6115},
+    {n:'Gnanasekaran',a:'IBeeM Den, 10, 3rd Main Rd, Hebbal 1st Stage',lm:'Near SBI More',lat:12.3520,lng:76.6117},
+    {n:'Omkar',a:'IBeeM Den, 10, 3rd Main Rd, Hebbal 1st Stage',lm:'Near SBI More',lat:12.3524,lng:76.6121}
+   ]},
+  {id:18,driver:'Anil Kumar',veh:'Ertiga',vno:'KA09 AA 6603',shift:'5:30 PM – 2:30 AM',pt:'02:30',
+   pax:[
+    {n:'Shreyas K O',a:'Koorgalli, Mysuru',lm:'Grama Panchayat Library',lat:12.2702,lng:76.6083},
+    {n:'Prabhulinga',a:'Kalpavriksha Boys PG',lm:'Opp Lounge 29, Ring Road',lat:12.3172,lng:76.5958},
+    {n:'Akkili Sudheer',a:'No 53, 9th Cross, Hebbal 2nd Stage',lm:'Chennamma Circle',lat:12.3031,lng:76.6358},
+    {n:'Naveen Kumar L',a:'SLV Boys PG',lm:'Near Choultry',lat:12.3206,lng:76.5968},
+    {n:'Gurudath',a:'208, KHB 3rd Stage, Kuvempunagar',lm:'Near Damro Furniture',lat:12.2960,lng:76.6192},
+    {n:'Shreehari',a:'643, 9A Cross, Vinay Marga, Siddaratha Layout',lm:'Near Jain Temple',lat:12.2975,lng:76.6295}
+   ]},
+  {id:19,driver:'Unassigned',veh:'Sedan',vno:'—',shift:'5:30 PM – 2:30 AM',pt:'02:30',
+   pax:[
+    {n:'Arjun Dev',a:'724 Hosa Beedi Hinkal',lm:'Hinkal',lat:12.3642,lng:76.6191},
+    {n:'Kavitha',a:'MIG 2 Group 3 KHB Hootagalli',lm:'Hootagalli',lat:12.4028,lng:76.5839},
+    {n:'Vinutha V',a:'#8683, 2nd Cross, 3rd Phase, Vijayanagar 4th Stage',lm:'Double High Tension Road',lat:12.3065,lng:76.5858},
+    {n:'Issac',a:'SLV Boys PG',lm:'Chennamma Circle',lat:12.3033,lng:76.6360}
+   ]}
+];
+
+var pal = ['#e05c35','#3b82f6','#22c55e','#a855f7','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#f59e0b','#10b981','#8b5cf6','#ef4444','#0ea5e9','#d946ef','#64748b','#fb923c','#34d399'];
+var nextId = 20;
+var active = null;
+var mkrs = [];
+var mp, previewMk;
+
+document.getElementById('cPax').textContent = trips.reduce((s,t) => s+t.pax.length, 0);
+document.getElementById('cTrips').textContent = trips.length;
+
+window.onload = function() {
+  mp = L.map('map',{zoomControl:true,attributionControl:false}).setView([12.3051,76.6551],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mp);
+  drawAll();
+  renderLeft();
+}
+
+function col(idx) { return pal[idx % pal.length] }
+
+function drawAll() {
+  mkrs.forEach(m => mp.removeLayer(m.m));
+  mkrs = [];
+  trips.forEach((t,ti) => {
+    var c = col(ti);
+    t.pax.forEach(p => {
+      var ico = L.divIcon({
+        className:'',
+        html:'<div style="width:9px;height:9px;background:'+c+';border:1.5px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.5)"></div>',
+        iconSize:[9,9],iconAnchor:[4.5,4.5]
+      });
+      var mk = L.marker([p.lat,p.lng],{icon:ico}).addTo(mp);
+      mk.bindPopup('<div class="pw">'+p.n+'</div><div class="pa">'+p.a+'</div><div class="pd">▸ '+t.driver+' · '+t.veh+' · '+t.vno+'</div>');
+      mk.on('click', function(){ pick(t.id) });
+      mkrs.push({tid:t.id, m:mk, c:c});
+    });
+  });
+}
+
+function renderLeft() {
+  var q = document.getElementById('q').value.toLowerCase();
+  var el = document.getElementById('tlist');
+  el.innerHTML = '';
+  trips.filter(t => !q || t.driver.toLowerCase().includes(q) || t.vno.toLowerCase().includes(q) || t.veh.toLowerCase().includes(q) || t.pax.some(p => p.n.toLowerCase().includes(q)))
+  .forEach(t => {
+    var ti = trips.indexOf(t);
+    var c = col(ti);
+    var d = document.createElement('div');
+    d.className = 'ti' + (active===t.id?' on':'');
+    d.id = 'ti-'+t.id;
+    d.onclick = function(){ pick(t.id) };
+    d.innerHTML = '<div class="dn">'+t.driver+'</div>'
+      +'<div class="tags"><span class="tag tv">'+t.veh+'</span><span class="tag ts">'+t.shift.split('–')[0].trim()+'</span></div>'
+      +'<div class="pc">'+t.pax.length+'p</div>'
+      +'<div class="cbar" style="background:'+c+'"></div>';
+    el.appendChild(d);
+  });
+}
+
+function pick(id) {
+  active = id;
+  var t = trips.find(x => x.id===id);
+  var ti = trips.indexOf(t);
+  var c = col(ti);
+
+  document.querySelectorAll('.ti').forEach(e => e.classList.remove('on'));
+  var card = document.getElementById('ti-'+id);
+  if (card) { card.classList.add('on'); card.scrollIntoView({behavior:'smooth',block:'nearest'}) }
+
+  mkrs.forEach(m => {
+    var el = m.m.getElement();
+    if (!el) return;
+    var dot = el.querySelector('div');
+    if (!dot) return;
+    if (m.tid===id) {
+      dot.style.cssText = 'width:14px;height:14px;background:'+m.c+';border:1.5px solid rgba(255,255,255,.9);border-radius:50%;margin-left:-2.5px;margin-top:-2.5px;box-shadow:0 0 6px '+m.c;
+    } else {
+      dot.style.cssText = 'width:9px;height:9px;background:'+m.c+';border:1.5px solid rgba(255,255,255,.9);border-radius:50%;opacity:.2;box-shadow:0 1px 3px rgba(0,0,0,.5)';
+    }
+  });
+
+  if (t.pax.length) mp.flyToBounds(L.latLngBounds(t.pax.map(p=>[p.lat,p.lng])),{padding:[40,40],maxZoom:14,duration:1});
+
+  var r = document.getElementById('right');
+  r.innerHTML = '<div class="rtop">'
+    +'<div class="tiny">selected trip</div>'
+    +'<div class="dname" style="color:'+c+'">'+t.driver+'</div>'
+    +'<div class="meta"><span class="pill po">'+t.shift+'</span><span class="pill pb">'+t.veh+' · '+t.vno+'</span><span class="pill pg">pickup '+t.pt+'</span></div>'
+    +'</div>'
+    +'<div class="plist">'
+    +'<div class="stitle"><span>'+t.pax.length+' passenger'+(t.pax.length!==1?'s':'')+'</span><button class="add-pax-btn" onclick="openModal(\'pax\','+id+')">+ add</button></div>'
+    +t.pax.map((p,i) => '<div class="px">'
+      +'<div class="pn" style="background:'+c+'22;color:'+c+'">'+(i+1)+'</div>'
+      +'<div class="pb2">'
+        +'<div class="pname">'+p.n+'</div>'
+        +'<div class="paddr">'+p.a+'</div>'
+        +(p.lm?'<div class="plm">↪ '+p.lm+'</div>':'')
+      +'</div>'
+    +'</div>').join('')
+    +'</div>'
+    +'<div class="rbottom">'
+    +'<select id="rPax"><option value="">— move passenger —</option>'+t.pax.map((p,i)=>'<option value="'+i+'">'+p.n+'</option>').join('')+'</select>'
+    +'<select id="rDrv"><option value="">— to driver —</option>'+trips.filter(x=>x.id!==id).map(x=>'<option value="'+x.id+'">'+x.driver+' ('+x.shift.split('–')[0].trim()+')</option>').join('')+'</select>'
+    +'<button class="rebtn" onclick="doMove('+id+')">Move →</button>'
+    +'</div>';
+}
+
+function doMove(fromId) {
+  var pi = parseInt(document.getElementById('rPax').value);
+  var toId = parseInt(document.getElementById('rDrv').value);
+  if (isNaN(pi)||isNaN(toId)) { toast('Pick a passenger and a driver','err'); return }
+  var from = trips.find(x=>x.id===fromId);
+  var to = trips.find(x=>x.id===toId);
+  var p = from.pax.splice(pi,1)[0];
+  to.pax.push(p);
+  syncCounts();
+  drawAll();
+  renderLeft();
+  pick(fromId);
+  toast(p.n+' → '+to.driver,'ok');
+}
+
+function syncCounts() {
+  document.getElementById('cPax').textContent = trips.reduce((s,t)=>s+t.pax.length,0);
+  document.getElementById('cTrips').textContent = trips.length;
+}
+
+var pendingTripId = null;
+
+function openModal(type, tid) {
+  if (type==='drv') {
+    document.getElementById('drvModal').classList.add('open');
+  } else {
+    pendingTripId = tid || (trips[0]&&trips[0].id);
+    var sel = document.getElementById('p_trip');
+    sel.innerHTML = trips.map(t=>'<option value="'+t.id+'"'+(t.id===pendingTripId?' selected':'')+'>'+t.driver+' – '+t.veh+'</option>').join('');
+    document.getElementById('p_lat').value = '';
+    document.getElementById('p_lng').value = '';
+    document.getElementById('geoStatus').textContent = '';
+    document.getElementById('geoStatus').className = 'geo-status';
+    document.getElementById('p_name').value = '';
+    document.getElementById('p_addr').value = '';
+    document.getElementById('p_lm').value = '';
+    document.getElementById('paxModal').classList.add('open');
+  }
+}
+
+function closeModal(type) {
+  document.getElementById(type==='drv'?'drvModal':'paxModal').classList.remove('open');
+  if (previewMk) { mp.removeLayer(previewMk); previewMk=null }
+}
+
+function addDriver() {
+  var name = document.getElementById('d_name').value.trim();
+  var veh = document.getElementById('d_veh').value;
+  var vno = document.getElementById('d_vno').value.trim().toUpperCase();
+  var s1 = document.getElementById('d_s1').value.trim();
+  var s2 = document.getElementById('d_s2').value.trim();
+  var pt = document.getElementById('d_pt').value.trim();
+  if (!name||!vno||!s1||!s2) { toast('Fill in all required fields','err'); return }
+  trips.push({id:nextId++, driver:name, veh:veh, vno:vno, shift:s1+' – '+s2, pt:pt||'—', pax:[]});
+  syncCounts();
+  renderLeft();
+  drawAll();
+  closeModal('drv');
+  document.getElementById('d_name').value='';
+  document.getElementById('d_vno').value='';
+  document.getElementById('d_s1').value='';
+  document.getElementById('d_s2').value='';
+  document.getElementById('d_pt').value='';
+  toast(name+' added as driver','ok');
+}
+
+async function geocode() {
+  var addr = document.getElementById('p_addr').value.trim();
+  if (!addr) { toast('Enter an address first','err'); return }
+  var btn = document.getElementById('geoBtn');
+  var status = document.getElementById('geoStatus');
+  btn.classList.add('loading');
+  btn.textContent = '…';
+  status.textContent = 'Looking up…';
+  status.className = 'geo-status';
+  try {
+    var q = encodeURIComponent(addr+', Mysuru, Karnataka, India');
+    var res = await fetch('https://nominatim.openstreetmap.org/search?q='+q+'&format=json&limit=1',{headers:{'Accept-Language':'en'}});
+    var data = await res.json();
+    if (!data.length) throw new Error('not found');
+    var lat = parseFloat(data[0].lat);
+    var lng = parseFloat(data[0].lon);
+    document.getElementById('p_lat').value = lat;
+    document.getElementById('p_lng').value = lng;
+    status.textContent = '✓ Found: '+data[0].display_name.split(',').slice(0,3).join(', ');
+    status.className = 'geo-status geo-ok';
+    if (previewMk) mp.removeLayer(previewMk);
+    var ico = L.divIcon({className:'',html:'<div style="width:14px;height:14px;background:#f5a623;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px #f5a623"></div>',iconSize:[14,14],iconAnchor:[7,7]});
+    previewMk = L.marker([lat,lng],{icon:ico}).addTo(mp);
+    previewMk.bindPopup('<div class="pw">New passenger</div><div class="pa">'+addr+'</div>').openPopup();
+    mp.flyTo([lat,lng],15,{duration:1});
+  } catch(e) {
+    status.textContent = '✗ Could not find address. Try adding more detail.';
+    status.className = 'geo-status geo-err';
+  }
+  btn.classList.remove('loading');
+  btn.textContent = 'Find →';
+}
+
+function addPassenger() {
+  var name = document.getElementById('p_name').value.trim();
+  var addr = document.getElementById('p_addr').value.trim();
+  var lm = document.getElementById('p_lm').value.trim();
+  var tid = parseInt(document.getElementById('p_trip').value);
+  var lat = parseFloat(document.getElementById('p_lat').value);
+  var lng = parseFloat(document.getElementById('p_lng').value);
+  if (!name||!addr) { toast('Name and address required','err'); return }
+  if (!lat||!lng) { toast('Click Find → to locate address on map','err'); return }
+  var t = trips.find(x=>x.id===tid);
+  if (!t) { toast('Select a valid driver','err'); return }
+  t.pax.push({n:name, a:addr, lm:lm, lat:lat, lng:lng});
+  if (previewMk) { mp.removeLayer(previewMk); previewMk=null }
+  syncCounts();
+  drawAll();
+  renderLeft();
+  closeModal('pax');
+  if (active===tid) pick(tid);
+  toast(name+' added to '+t.driver,'ok');
+}
+
+function toast(msg, type) {
+  var el = document.getElementById('snack');
+  el.textContent = msg;
+  el.className = 'snack show'+(type?' '+type:'');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.classList.remove('show'), 2800);
+}
+
+function openSheet(fmt) {
+  var wb = XLSX.utils.book_new();
+  var shifts = [...new Set(trips.map(t=>t.shift))];
+  shifts.forEach(sh => {
+    var rows = [];
+    trips.filter(t=>t.shift===sh).forEach(t => {
+      rows.push(['No','Name','Shift Timings','Veh Type','Veh No','Driver','Pick up Timing','Address','Landmark','Employee Signature']);
+      t.pax.forEach((p,i) => rows.push([i+1, p.n, t.shift, i===0?t.veh:'', i===0?t.vno:'', i===0?t.driver:'', t.pt, p.a, p.lm||'', '']));
+      rows.push([]);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:4},{wch:22},{wch:22},{wch:12},{wch:16},{wch:12},{wch:12},{wch:48},{wch:28},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, ws, sh.replace(/[^\w ]/g,'').substring(0,28).trim()||'Sheet');
+  });
+  var sum = [['Driver','Vehicle','Plate','Shift','Pickup','Passengers']];
+  trips.forEach(t => sum.push([t.driver,t.veh,t.vno,t.shift,t.pt,t.pax.length]));
+  var ws2 = XLSX.utils.aoa_to_sheet(sum);
+  ws2['!cols'] = [{wch:14},{wch:12},{wch:16},{wch:24},{wch:10},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Summary');
+
+  if (fmt==='csv') {
+    var allRows = [['No','Name','Shift','Veh Type','Veh No','Driver','Pickup','Address','Landmark']];
+    trips.forEach(t => t.pax.forEach((p,i) => allRows.push([i+1,p.n,t.shift,i===0?t.veh:'',i===0?t.vno:'',i===0?t.driver:'',t.pt,p.a,p.lm||''])));
+    var csv = allRows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+    var blob = new Blob([csv],{type:'text/csv'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'SafeWheels_Trips.csv';
+    a.click();
+    toast('CSV downloaded — open in Google Sheets via File > Import','ok');
+  } else {
+    XLSX.writeFile(wb,'SafeWheels_Trips.xlsx');
+    toast('Downloaded SafeWheels_Trips.xlsx','ok');
+  }
+}
+
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', function(e) {
+    if (e.target===this) {
+      var type = this.id==='drvModal'?'drv':'pax';
+      closeModal(type);
+    }
+  });
+});
+</script>
+</body>
+</html>
